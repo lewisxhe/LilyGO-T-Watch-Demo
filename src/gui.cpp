@@ -356,6 +356,16 @@ static void event_handler(lv_obj_t *obj, lv_event_t event)
 
 void setupGui()
 {
+
+    // lv_theme_mono_init(10, NULL);
+    // lv_theme_alien_init(10, NULL);
+    lv_theme_material_init(10, NULL);
+    // lv_theme_nemo_init(10, NULL);
+    // lv_theme_night_init(10, NULL);
+    // lv_theme_zen_init(10, NULL);
+
+    lv_theme_set_current(lv_theme_get_material());
+
     lv_style_copy(&settingStyle, &lv_style_plain);    /*Copy a built-in style to initialize the new style*/
     settingStyle.body.main_color = LV_COLOR_GRAY;
     settingStyle.body.grad_color = LV_COLOR_GRAY;
@@ -940,22 +950,21 @@ public:
         }
         if (_listCont == nullptr) {
             static lv_style_t listStyle;
-
-            if (style != nullptr) {
-                lv_style_copy(&listStyle, style);
-            } else {
+            // if (style != nullptr) {
+            //     lv_style_copy(&listStyle, style);
+            // } else {
                 lv_style_copy(&listStyle, &lv_style_plain);    /*Copy a built-in style to initialize the new style*/
-                listStyle.body.main_color = LV_COLOR_GRAY;
-                listStyle.body.grad_color = LV_COLOR_GRAY;
-                listStyle.body.opa = LV_OPA_0;
-                listStyle.body.radius = 0;
-                listStyle.body.border.color = LV_COLOR_GRAY;
-                listStyle.body.border.width = 0;
-                listStyle.body.border.opa = LV_OPA_50;
-                listStyle.text.color = LV_COLOR_WHITE;
-                listStyle.image.color = LV_COLOR_WHITE;
-                listStyle.text.font = &chinese_font;
-            }
+            //     listStyle.body.main_color = LV_COLOR_GRAY;
+            //     listStyle.body.grad_color = LV_COLOR_GRAY;
+            //     listStyle.body.opa = LV_OPA_0;
+            //     listStyle.body.radius = 0;
+            //     listStyle.body.border.color = LV_COLOR_GRAY;
+            //     listStyle.body.border.width = 0;
+            //     listStyle.body.border.opa = LV_OPA_50;
+            //     listStyle.text.color = LV_COLOR_WHITE;
+            //     listStyle.image.color = LV_COLOR_WHITE;
+            //     listStyle.text.font = &chinese_font;
+            // }
 
             _listCont = lv_list_create(lv_scr_act(), NULL);
             lv_obj_set_size(_listCont, LV_HOR_RES, LV_VER_RES - 30);
@@ -1591,7 +1600,96 @@ void audio_play_loop()
 
 
 
+static lv_obj_t *play_cont = nullptr;
 
+static const void *src_img_btn[4] =  {LV_SYMBOL_PREV, LV_SYMBOL_PAUSE, LV_SYMBOL_NEXT, LV_SYMBOL_PLAY};
+
+static void audio_play_event_handler(lv_obj_t *obj, lv_event_t event)
+{
+    if (event == LV_EVENT_CLICKED) {
+        uint8_t flags = *(uint8_t *)lv_obj_get_user_data(obj);
+        switch (flags) {
+        case 1: //prev
+            Serial.println("PREV");
+
+            break;
+        case 2: // play  & pause
+            Serial.println("PLAY");
+
+            break;
+        case 3: // next
+            Serial.println("NEXT");
+
+            break;
+        case 4: // qiut
+            Serial.println("QIUT");
+
+            lv_obj_set_hidden(play_cont, true);
+            list->hidden(false);
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+
+static void audio_play_create_ui()
+{
+    list->hidden();
+
+    if (play_cont != nullptr) {
+        lv_obj_set_hidden(play_cont, false);
+        return;
+    }
+
+    static lv_style_t cont_style;
+    lv_style_copy(&cont_style, &lv_style_plain);
+    cont_style.body.main_color = LV_COLOR_GRAY;
+    cont_style.body.grad_color = LV_COLOR_GRAY;
+    cont_style.body.opa = LV_OPA_0;
+    cont_style.body.radius = 0;
+    cont_style.body.border.color = LV_COLOR_GRAY;
+    cont_style.body.border.width = 0;
+    cont_style.body.border.opa = LV_OPA_50;
+    cont_style.text.color = LV_COLOR_WHITE;
+    cont_style.image.color = LV_COLOR_WHITE;
+
+    play_cont = lv_cont_create(lv_scr_act(), NULL);
+    lv_obj_set_size(play_cont, LV_HOR_RES, LV_VER_RES - 30);
+    lv_obj_align(play_cont, bar.self(), LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    lv_obj_set_style(play_cont, &cont_style);
+
+    lv_obj_t *label = lv_label_create(play_cont, NULL);
+    lv_label_set_text(label, "File name.....");
+    lv_label_set_long_mode(label, LV_LABEL_LONG_SROLL);
+    lv_obj_set_width(label, 80);
+    lv_obj_align(label, play_cont, LV_ALIGN_IN_TOP_MID, 0, 50);
+
+    lv_obj_t *btn = nullptr;
+    lv_obj_t *img_btn = nullptr;
+    lv_obj_t *prev_btn = nullptr;
+
+    static uint8_t flags[4] = {1, 2, 3, 4};
+
+    for (uint8_t i = 0; i < 3; i++) {
+        btn = lv_btn_create(play_cont, NULL);
+        lv_obj_set_size(btn, 50, 50);
+        lv_obj_set_user_data(btn, &flags[i]);
+        img_btn = lv_img_create(btn, NULL);
+        lv_img_set_src(img_btn, src_img_btn[i]);
+        lv_obj_align(btn, prev_btn, i == 0 ? LV_ALIGN_IN_LEFT_MID : LV_ALIGN_OUT_RIGHT_MID,  20, i == 0 ? 40 : 0);
+        lv_obj_set_event_cb(btn, audio_play_event_handler);
+        prev_btn = btn;
+    }
+
+    img_btn = lv_img_create(play_cont, NULL);
+    lv_img_set_src(img_btn, &qiut);
+    lv_obj_align(img_btn, play_cont, LV_ALIGN_IN_TOP_RIGHT, -15, 10);
+    lv_obj_set_click(img_btn, true);
+    lv_obj_set_event_cb(img_btn, audio_play_event_handler);
+    lv_obj_set_user_data(img_btn, &flags[3]);
+}
 
 
 static void audio_play_task(void *args)
@@ -1681,6 +1779,8 @@ static void sd_list_event_cb(const char *text)
     Serial.println(text);
     // disableCore0WDT();
     // disableCore1WDT();
+    audio_play_create_ui();
+    return;
     if (audio_play_start(String(text))) {
         // xTaskCreate(audio_play_task, "audio", 8192, nullptr, 1, NULL);
     } else {
