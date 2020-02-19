@@ -953,7 +953,7 @@ public:
             // if (style != nullptr) {
             //     lv_style_copy(&listStyle, style);
             // } else {
-                lv_style_copy(&listStyle, &lv_style_plain);    /*Copy a built-in style to initialize the new style*/
+            lv_style_copy(&listStyle, &lv_style_plain);    /*Copy a built-in style to initialize the new style*/
             //     listStyle.body.main_color = LV_COLOR_GRAY;
             //     listStyle.body.grad_color = LV_COLOR_GRAY;
             //     listStyle.body.opa = LV_OPA_0;
@@ -1468,6 +1468,7 @@ enum PlayState {
 enum PlayFomart {
     Play_MP3,
     Play_WAV,
+    Play_FLAC,
     Play_NONE,
 };
 
@@ -1478,12 +1479,13 @@ enum PlayFomart {
 #include "AudioOutputI2SNoDAC.h"
 #include "AudioGeneratorWAV.h"
 #include "AudioOutputI2S.h"
-
+#include <AudioGeneratorFLAC.h>
 //! audio object
 static AudioGeneratorWAV *audio_wav = nullptr;
 static AudioGeneratorMP3 *audio_mp3 = nullptr;
 static AudioFileSourceSD *audio_file = nullptr;
 static AudioFileSourceID3 *audio_id3 = nullptr;
+static AudioGeneratorFLAC *audio_flac = nullptr;
 
 #ifdef AUDIO_PLAY_OUTPUT_I2S
 static AudioOutputI2S *audio_out = nullptr;
@@ -1491,12 +1493,20 @@ static AudioOutputI2S *audio_out = nullptr;
 static AudioOutput *audio_out = nullptr;
 #endif /*AUDIO_PLAY_OUTPUT_I2S*/
 
-static PlayState aduio_state = Play_STOP;
-static PlayFomart aduio_fomart = Play_NONE;
+extern Print *audioLogger ;
+
+static PlayState audio_state = Play_STOP;
+static PlayFomart audio_format = Play_NONE;
+
+
+lv_obj_t *audio_list = nullptr;
+lv_obj_t *audio_cont = nullptr;
 
 static bool audio_play_init()
 {
     if (audio_file != nullptr)return true;
+
+    audioLogger = &Serial;
 
     audio_file = new AudioFileSourceSD();
     audio_id3 = new AudioFileSourceID3(audio_file);
@@ -1509,18 +1519,91 @@ static bool audio_play_init()
 #endif
     audio_mp3 = new AudioGeneratorMP3();
     audio_wav = new AudioGeneratorWAV();
-
+    audio_flac = new AudioGeneratorFLAC();
+    if (!audio_file || !audio_id3 || !audio_out || !audio_mp3 || !audio_wav || !audio_flac) {
+        Serial.println("audio_play_init failed ,memory failed");
+    }
     //! Turn on the ldo3 power
     TTGOClass *watch = TTGOClass::getWatch();
     watch->enableLDO3();
     return true;
 }
 
+static void audio_play_deinit()
+{
+    audio_state = Play_STOP;
+    audio_format = Play_NONE;
+    if (audio_mp3) {
+        // audio_mp3->stop();
+        delete audio_mp3;
+        audio_mp3 = nullptr;
+    }
+    if (audio_wav) {
+        audio_wav->stop();
+        delete audio_wav;
+        audio_wav = nullptr;
+    }
+    if (audio_flac) {
+        if (audio_flac->isRunning()) {
+            Serial.println("flac play is runing");
+            // audio_flac->stop();
+        }
+        delete audio_flac;
+        audio_flac = nullptr;
+    }
+    if (audio_out) {
+        delete audio_out;
+        audio_out = nullptr;
+    }
+    if (audio_id3) {
+        delete audio_id3;
+        audio_id3 = nullptr;
+    }
+    if (audio_file) {
+        delete audio_file;
+        audio_file = nullptr;
+    }
+
+    //! Turn off the ldo3 power
+    TTGOClass *watch = TTGOClass::getWatch();
+    watch->enableLDO3(false);
+
+}
+
+
 bool audio_play_start(String filename)
 {
+    Serial.println("---------------------------");
+    heap_caps_print_heap_info(MALLOC_CAP_SPIRAM);
+    Serial.println("---------------------------");
+    heap_caps_print_heap_info(MALLOC_CAP_INTERNAL);
+    Serial.println("---------------------------");
+
     audio_play_init();
     Serial.print("Play music name:");
     Serial.println(filename);
+
+    if (audio_state == Play_PLAY) {
+        switch (audio_format) {
+        case Play_WAV:
+            audio_wav->stop();
+            break;
+        case Play_MP3:
+            audio_mp3->stop();
+            break;
+        case Play_FLAC:
+            audio_flac->stop();
+            break;
+        default:
+            break;
+        }
+    }
+
+    Serial.println("---------------------------");
+    heap_caps_print_heap_info(MALLOC_CAP_SPIRAM);
+    Serial.println("---------------------------");
+    heap_caps_print_heap_info(MALLOC_CAP_INTERNAL);
+    Serial.println("---------------------------");
 
     if (filename.endsWith(".mp3")) {
         if (!audio_file->open(filename.c_str())) {
@@ -1529,12 +1612,11 @@ bool audio_play_start(String filename)
         }
         if (!audio_mp3->begin(audio_id3, audio_out)) {
             Serial.println("Failed to begin mp3 file");
-
             return false;
         }
-        aduio_state = Play_PLAY;
-        aduio_fomart = Play_MP3;
-    } else if (filename.endsWith(".wav")) {
+        audio_state = Play_PLAY;
+        audio_format = Play_MP3;
+    } else if (filename.endsWith(".wav") || filename.endsWith(".WAV")) {
 
         if (!audio_file->open(filename.c_str())) {
             Serial.println("Failed to open file");
@@ -1544,12 +1626,25 @@ bool audio_play_start(String filename)
             Serial.println("Failed to begin wav file");
             return false;
         }
-        aduio_state = Play_PLAY;
-        aduio_fomart = Play_WAV;
+        audio_state = Play_PLAY;
+        audio_format = Play_WAV;
+
+    } else if (filename.endsWith(".flac")) {
+
+        if (!audio_file->open(filename.c_str())) {
+            Serial.println("Failed to open file");
+            return false;
+        }
+        if (!audio_flac->begin(audio_file, audio_out)) {
+            Serial.println("Failed to begin flac file");
+            return false;
+        }
+        audio_state = Play_PLAY;
+        audio_format = Play_FLAC;
 
     } else {
-        aduio_state = Play_STOP;
-        aduio_fomart = Play_NONE;
+        audio_state = Play_STOP;
+        audio_format = Play_NONE;
         return false;
     }
     return true;
@@ -1557,23 +1652,26 @@ bool audio_play_start(String filename)
 
 static void aduio_play_handle()
 {
-    switch (aduio_fomart) {
+    switch (audio_format) {
     case Play_MP3:
-        if (audio_mp3->isRunning()) {
-            if (!audio_mp3->loop()) {
-                audio_mp3->stop();
-                aduio_state = Play_STOP;
-            }
+        if (!audio_mp3->loop()) {
+            audio_mp3->stop();
+            audio_state = Play_STOP;
         }
         break;
     case Play_WAV:
-        if (audio_wav->isRunning()) {
-            if (!audio_wav->loop()) {
-                audio_wav->stop();
-                aduio_state = Play_STOP;
-            }
+        if (!audio_wav->loop()) {
+            audio_wav->stop();
+            audio_state = Play_STOP;
         }
         break;
+    case Play_FLAC:
+        if (!audio_flac->loop()) {
+            audio_flac->stop();
+            audio_state = Play_STOP;
+        }
+        break;
+
     default:
         break;
     }
@@ -1581,7 +1679,7 @@ static void aduio_play_handle()
 
 void audio_play_loop()
 {
-    switch (aduio_state) {
+    switch (audio_state) {
     case Play_PLAY:
         aduio_play_handle();
         break;
@@ -1601,6 +1699,8 @@ void audio_play_loop()
 
 
 static lv_obj_t *play_cont = nullptr;
+static lv_obj_t *audio_label = nullptr;
+static lv_obj_t *audio_cur_btn = nullptr;
 
 static const void *src_img_btn[4] =  {LV_SYMBOL_PREV, LV_SYMBOL_PAUSE, LV_SYMBOL_NEXT, LV_SYMBOL_PLAY};
 
@@ -1625,7 +1725,11 @@ static void audio_play_event_handler(lv_obj_t *obj, lv_event_t event)
             Serial.println("QIUT");
 
             lv_obj_set_hidden(play_cont, true);
+#if DISABLE_LIST_CLASS
             list->hidden(false);
+#else
+            lv_obj_set_hidden(audio_cont, false);
+#endif
             break;
         default:
             break;
@@ -1634,15 +1738,19 @@ static void audio_play_event_handler(lv_obj_t *obj, lv_event_t event)
 }
 
 
-static void audio_play_create_ui()
+static void audio_play_create_ui(const char *name)
 {
+#if DISABLE_LIST_CLASS
     list->hidden();
+#else
+    lv_obj_set_hidden(audio_cont, true);
+#endif
 
     if (play_cont != nullptr) {
+        lv_label_set_text(audio_label, name);
         lv_obj_set_hidden(play_cont, false);
         return;
     }
-
     static lv_style_t cont_style;
     lv_style_copy(&cont_style, &lv_style_plain);
     cont_style.body.main_color = LV_COLOR_GRAY;
@@ -1660,11 +1768,11 @@ static void audio_play_create_ui()
     lv_obj_align(play_cont, bar.self(), LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
     lv_obj_set_style(play_cont, &cont_style);
 
-    lv_obj_t *label = lv_label_create(play_cont, NULL);
-    lv_label_set_text(label, "File name.....");
-    lv_label_set_long_mode(label, LV_LABEL_LONG_SROLL);
-    lv_obj_set_width(label, 80);
-    lv_obj_align(label, play_cont, LV_ALIGN_IN_TOP_MID, 0, 50);
+    audio_label = lv_label_create(play_cont, NULL);
+    lv_label_set_text(audio_label, name);
+    lv_label_set_long_mode(audio_label, LV_LABEL_LONG_SROLL);
+    lv_obj_set_width(audio_label, 160);
+    lv_obj_align(audio_label, play_cont, LV_ALIGN_IN_TOP_MID, 0, 50);
 
     lv_obj_t *btn = nullptr;
     lv_obj_t *img_btn = nullptr;
@@ -1688,7 +1796,7 @@ static void audio_play_create_ui()
     lv_obj_align(img_btn, play_cont, LV_ALIGN_IN_TOP_RIGHT, -15, 10);
     lv_obj_set_click(img_btn, true);
     lv_obj_set_event_cb(img_btn, audio_play_event_handler);
-    lv_obj_set_user_data(img_btn, &flags[3]);
+    lv_obj_set_user_data(img_btn, (void *)&flags[3]);
 }
 
 
@@ -1733,6 +1841,9 @@ static void sd_mbox_event_cb(lv_obj_t *obj, lv_event_t event)
 
 
 static void sd_list_file(fs::FS &fs, const char *dirname = "/", uint8_t levels = 0);
+#if !defined(DISABLE_LIST_CLASS)
+static void sd_list_event_cb(lv_obj_t *obj,  lv_event_t event);
+#endif
 
 static void sd_list_file(fs::FS &fs, const char *dirname, uint8_t levels)
 {
@@ -1758,12 +1869,21 @@ static void sd_list_file(fs::FS &fs, const char *dirname, uint8_t levels)
             }
         } else {
             String filename = file.name();
-            if (filename.endsWith(".mp3") ||
-                    filename.endsWith(".WAV") ||
-                    filename.endsWith(".MP3") ||
-                    filename.endsWith(".wav")) {
-                Serial.println(filename);
-                list->add(filename.c_str(), (void *)LV_SYMBOL_FILE);
+            if (!filename.startsWith("/._")) {
+                if (filename.endsWith(".mp3") ||
+                        filename.endsWith(".WAV") ||
+                        filename.endsWith(".MP3") ||
+                        filename.endsWith(".wav") ||
+                        filename.endsWith(".flac")) {
+                    Serial.println(filename);
+#if DISABLE_LIST_CLASS
+                    list->add(filename.c_str(), (void *)LV_SYMBOL_FILE);
+#else
+                    lv_obj_t *btns = lv_list_add_btn(audio_list, LV_SYMBOL_FILE, filename.c_str());
+                    lv_obj_set_event_cb(btns, sd_list_event_cb);
+
+#endif
+                }
             }
             // Serial.print("  FILE: ");
             // Serial.print(file.name());
@@ -1774,20 +1894,37 @@ static void sd_list_file(fs::FS &fs, const char *dirname, uint8_t levels)
     }
 }
 
+#if DISABLE_LIST_CLASS
 static void sd_list_event_cb(const char *text)
 {
     Serial.println(text);
     // disableCore0WDT();
     // disableCore1WDT();
-    audio_play_create_ui();
-    return;
+    audio_play_create_ui(text);
+    // return;
     if (audio_play_start(String(text))) {
         // xTaskCreate(audio_play_task, "audio", 8192, nullptr, 1, NULL);
     } else {
         Serial.println("Failed to paly music");
     }
 }
-
+#else
+static void sd_list_event_cb(lv_obj_t *obj,  lv_event_t event)
+{
+    if (event == LV_EVENT_SHORT_CLICKED) {
+        // Save current music btn
+        audio_cur_btn = obj;
+        const char *text = lv_list_get_btn_text(obj);
+        Serial.println(text);
+        audio_play_create_ui(text);
+        if (audio_play_start(String(text))) {
+            // xTaskCreate(audio_play_task, "audio", 8192, nullptr, 1, NULL);
+        } else {
+            Serial.println("Failed to paly music");
+        }
+    }
+}
+#endif
 
 static void sd_event_cb()
 {
@@ -1796,12 +1933,63 @@ static void sd_event_cb()
         lv_mbox_add_btns(mbox1, btns);
         return;
     }
-
+#if DISABLE_LIST_CLASS
     list = new List;
     list->create();
     list->align(bar.self(), LV_ALIGN_OUT_BOTTOM_MID);
     list->setListCb(sd_list_event_cb);
+#else
 
+    static lv_style_t plStyle;
+    lv_style_copy(&plStyle, &lv_style_plain);    /*Copy a built-in style to initialize the new style*/
+    plStyle.body.main_color = LV_COLOR_GRAY;
+    plStyle.body.grad_color = LV_COLOR_GRAY;
+    plStyle.body.opa = LV_OPA_0;
+    plStyle.body.radius = 0;
+    plStyle.body.border.color = LV_COLOR_GRAY;
+    plStyle.body.border.width = 0;
+    plStyle.body.border.opa = LV_OPA_50;
+    plStyle.text.color = LV_COLOR_WHITE;
+    plStyle.image.color = LV_COLOR_WHITE;
+
+    static lv_style_t listStyle;
+    lv_style_copy(&listStyle, &lv_style_plain);
+    listStyle.body.opa = LV_OPA_0;
+    listStyle.text.color = LV_COLOR_WHITE;
+    listStyle.image.color = LV_COLOR_WHITE;
+    // listStyle.text.font = &chinese_font;
+
+    audio_cont = lv_cont_create(lv_scr_act(), nullptr);
+    lv_obj_set_size(audio_cont, LV_HOR_RES, LV_VER_RES - 30);
+    lv_obj_set_style(audio_cont, &plStyle);
+    lv_obj_align(audio_cont, bar.self(), LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+
+    audio_list = lv_list_create(audio_cont, nullptr);
+    lv_obj_set_size(audio_list, LV_HOR_RES, LV_VER_RES - 60);
+    lv_list_set_style(audio_list, LV_LIST_STYLE_BG, &listStyle);
+    lv_obj_align(audio_list, audio_cont, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
+
+    lv_obj_t *img_btn = lv_img_create(audio_cont, NULL);
+    lv_img_set_src(img_btn, &qiut);
+    lv_obj_align(img_btn, audio_cont, LV_ALIGN_IN_TOP_RIGHT, -15, 2);
+    lv_obj_set_click(img_btn, true);
+    lv_obj_set_event_cb(img_btn, [](lv_obj_t *obj, lv_event_t event) {
+        if (event == LV_EVENT_SHORT_CLICKED) {
+            if (play_cont) {
+                lv_obj_del(play_cont);
+                play_cont = nullptr;
+                audio_play_deinit();
+            }
+            if (audio_cont) {
+                lv_obj_del(audio_cont);
+                audio_cont = nullptr;
+                audio_list = nullptr;
+                menuBars.hidden(false);
+            }
+        }
+    });
+
+#endif
     sd_list_file(SD);
 
 }

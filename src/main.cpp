@@ -45,7 +45,7 @@ QueueHandle_t g_event_queue_handle = NULL;
 EventGroupHandle_t g_event_group = NULL;
 EventGroupHandle_t isr_group = NULL;
 SemaphoreHandle_t xSysSemaphore = NULL;
-
+bool screen_off = false;
 bool lenergy = false;
 TTGOClass *ttgo;
 
@@ -291,12 +291,18 @@ void loop()
             break;
         }
     }
-    if (lv_disp_get_inactive_time(NULL) < DEFAULT_SCREEN_TIMEOUT ) {
+    if (screen_off) {
+        if (lv_disp_get_inactive_time(NULL) < DEFAULT_SCREEN_TIMEOUT ) {
+            xSemaphoreTake(xSysSemaphore, portMAX_DELAY);
+            lv_task_handler();
+            xSemaphoreGive(xSysSemaphore);
+        } else {
+            low_energy();
+        }
+    } else {
         xSemaphoreTake(xSysSemaphore, portMAX_DELAY);
         lv_task_handler();
         xSemaphoreGive(xSysSemaphore);
-    } else {
-        low_energy();
     }
     audio_play_loop();
 }
