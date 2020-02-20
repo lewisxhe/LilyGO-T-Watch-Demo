@@ -58,6 +58,8 @@ LV_FONT_DECLARE(chinese_font);
 LV_FONT_DECLARE(digital_font);
 LV_IMG_DECLARE(thermometer);
 LV_IMG_DECLARE(qiut);
+LV_IMG_DECLARE(bird_png);
+LV_IMG_DECLARE(speedometer_png);
 
 extern EventGroupHandle_t g_event_group;
 extern QueueHandle_t g_event_queue_handle;
@@ -84,6 +86,8 @@ static void camera_event_cb();
 static void wifi_destory();
 static void nCov_event_cb();
 static void thermometer_event_cb();
+static void game_event_cb();
+
 
 class StatusBar
 {
@@ -327,12 +331,15 @@ MenuBar::lv_menu_config_t _cfg[] = {
     {.name = "Thermometer", .img = (void *) &thermometer, .event_cb = thermometer_event_cb},
     {.name = "Bluetooth",  .img = (void *) &bluetooth, .event_cb = bluetooth_event_cb},
     {.name = "SD Card",  .img = (void *) &sd,  .event_cb = sd_event_cb},
+    {.name = "FlappyBird",  .img = (void *) &bird_png, .event_cb = game_event_cb},
+    {.name = "Speedometer",  .img = (void *) &speedometer_png, /*.event_cb = speedometer_event_cb*/},
     {.name = "Light",  .img = (void *) &light, /*.event_cb = light_event_cb*/},
     {.name = "Setting",  .img = (void *) &setting, /*.event_cb = setting_event_cb */},
     {.name = "Modules",  .img = (void *) &modules, /*.event_cb = modules_event_cb */},
     {.name = "Camera",  .img = (void *) &CAMERA_PNG, /*.event_cb = camera_event_cb*/ },
-    //{.name = "Bird",  .img = (void *) &bird_png, /*.event_cb = game_event_cb*/ },
     //{.name = "Info",  .img = (void *) &cpu_png, /*.event_cb = info_event_cb*/ },
+
+
 };
 
 
@@ -1128,7 +1135,21 @@ private:
 };
 
 
-
+static lv_style_t *getGlobalStyle()
+{
+    static lv_style_t style;
+    lv_style_copy(&style, &lv_style_plain);    /*Copy a built-in style to initialize the new style*/
+    style.body.main_color = LV_COLOR_GRAY;
+    style.body.grad_color = LV_COLOR_GRAY;
+    style.body.opa = LV_OPA_0;
+    style.body.radius = 0;
+    style.body.border.color = LV_COLOR_GRAY;
+    style.body.border.width = 0;
+    style.body.border.opa = LV_OPA_50;
+    style.text.color = LV_COLOR_WHITE;
+    style.image.color = LV_COLOR_WHITE;
+    return &style;
+}
 
 /*****************************************************************
  *
@@ -2768,3 +2789,87 @@ static void bluetooth_event_cb()
     pl->align(bar.self(), LV_ALIGN_OUT_BOTTOM_MID);
     bluetooth_start();
 }
+
+
+/*****************************************************************
+ *
+ *          ! GAME EVENT
+ *
+ */
+#ifndef Q_EVENT_PLAY_GAME
+#define Q_EVENT_PLAY_GAME   (4)
+#endif
+
+static void game_btn_event_cb(lv_obj_t *obj, lv_event_t event)
+{
+    if (event == LV_EVENT_CLICKED) {
+        lv_obj_t *label =  (lv_obj_t *)lv_obj_get_user_data(obj);
+        const char *txt = lv_label_get_text(label);
+        Serial.println(txt);
+
+
+        // uint8_t data = Q_EVENT_PLAY_GAME;
+        // xQueueSend(g_event_queue_handle, &data, portMAX_DELAY);
+    }
+}
+
+static void game_event_cb()
+{
+    // lv_obj_set_hidden(bar.self(), true);
+    lv_obj_set_hidden(menuBars.self(), true);
+
+
+    lv_obj_t *game_cont = lv_cont_create(lv_scr_act(), nullptr);
+    lv_obj_set_size(game_cont, LV_HOR_RES, LV_VER_RES - 30);
+    lv_obj_align(game_cont, bar.self(), LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+    lv_obj_set_style(game_cont, getGlobalStyle());
+
+    lv_obj_t *label = lv_label_create(game_cont, nullptr);
+    lv_label_set_text(label, "Choose control method");
+    lv_obj_align(label, game_cont, LV_ALIGN_IN_TOP_LEFT, 10, 30);
+
+    static lv_style_t style_shadow;
+    lv_style_copy(&style_shadow, &lv_style_scr);
+    style_shadow.body.shadow.width = 1;
+    style_shadow.body.radius = LV_RADIUS_CIRCLE;
+
+    lv_obj_t *btn = lv_btn_create(game_cont, nullptr);
+    lv_obj_set_size(btn, 160, 50);
+    lv_obj_align(btn, game_cont, LV_ALIGN_CENTER, 0, -10);
+    lv_btn_set_style(btn, LV_BTN_STATE_PR, &style_shadow);
+    lv_btn_set_style(btn, LV_BTN_STATE_REL, &style_shadow);
+    lv_obj_set_event_cb(btn, game_btn_event_cb);
+
+    label = lv_label_create(btn, nullptr);
+    lv_label_set_text(label, "External button");
+    lv_obj_align(label, btn, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_user_data(btn, label);
+
+    lv_obj_t *btn1 = lv_btn_create(game_cont, nullptr);
+    lv_obj_set_size(btn1, 160, 50);
+    lv_btn_set_style(btn1, LV_BTN_STATE_PR, &style_shadow);
+    lv_btn_set_style(btn1, LV_BTN_STATE_REL, &style_shadow);
+    lv_obj_align(btn1, btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
+    lv_obj_set_event_cb(btn1, game_btn_event_cb);
+
+    label = lv_label_create(btn1, nullptr);
+    lv_label_set_text(label, "Touch screen");
+    lv_obj_align(label, btn1, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_user_data(btn1, label);
+
+
+    // uint8_t data = Q_EVENT_PLAY_GAME;
+    // xQueueSend(g_event_queue_handle, &data, portMAX_DELAY);
+}
+
+void game_done()
+{
+    lv_obj_set_hidden(bar.self(), false);
+    lv_obj_set_hidden(menuBars.self(), false);
+}
+
+
+
+
+
+

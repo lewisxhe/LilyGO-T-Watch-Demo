@@ -41,4 +41,6 @@ bool update_soil_data(const char *text);
 void bluetooth_diconnect_cb();
 
 void audio_play_loop();
+void game_done();
+
 #endif /*__GUI_H */

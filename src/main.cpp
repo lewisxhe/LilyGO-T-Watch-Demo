@@ -16,6 +16,7 @@ Created by Lewis he on October 10, 2019.
 #include <WiFi.h>
 #include "gui.h"
 #include "bluetooth.h"
+#include "flappy_bird.h"        //lewis 20200220 add
 
 #define G_EVENT_VBUS_PLUGIN         _BV(0)
 #define G_EVENT_VBUS_REMOVE         _BV(1)
@@ -32,6 +33,7 @@ enum {
     Q_EVENT_WIFI_CONNECT,
     Q_EVENT_BMA_INT,
     Q_EVENT_AXP_INT,
+    Q_EVENT_PLAY_GAME,
 } ;
 
 #define DEFAULT_SCREEN_TIMEOUT  30*1000
@@ -47,6 +49,7 @@ EventGroupHandle_t isr_group = NULL;
 SemaphoreHandle_t xSysSemaphore = NULL;
 bool screen_off = false;
 bool lenergy = false;
+
 TTGOClass *ttgo;
 
 void setupNetwork()
@@ -290,6 +293,18 @@ void loop()
             }
             break;
         }
+
+        case Q_EVENT_PLAY_GAME: {
+            flappy_bird_start([]()->bool{
+                ttgo->button->loop();
+                return ttgo->touch->touched();
+            });
+            ttgo->button->setDoubleClickHandler(nullptr);
+            game_done();
+            lv_disp_trig_activity(NULL);
+            lv_refr_now(nullptr);
+        }
+        break;
         default:
             break;
         }
