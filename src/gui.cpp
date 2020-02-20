@@ -331,6 +331,8 @@ MenuBar::lv_menu_config_t _cfg[] = {
     {.name = "Setting",  .img = (void *) &setting, /*.event_cb = setting_event_cb */},
     {.name = "Modules",  .img = (void *) &modules, /*.event_cb = modules_event_cb */},
     {.name = "Camera",  .img = (void *) &CAMERA_PNG, /*.event_cb = camera_event_cb*/ },
+    //{.name = "Bird",  .img = (void *) &bird_png, /*.event_cb = game_event_cb*/ },
+    //{.name = "Info",  .img = (void *) &cpu_png, /*.event_cb = info_event_cb*/ },
 };
 
 
@@ -999,12 +1001,32 @@ public:
     static void __list_event_cb(lv_obj_t *obj, lv_event_t event)
     {
         if (event == LV_EVENT_SHORT_CLICKED) {
+            _list->_cur_btn = obj;
             const char *txt = lv_list_get_btn_text(obj);
             if (_list->_cb != nullptr) {
                 _list->_cb(txt);
             }
         }
     }
+
+    const char *getNextText()
+    {
+        lv_obj_t *next_btn = lv_list_get_next_btn(_listCont, _cur_btn);
+        if (next_btn) {
+            return lv_list_get_btn_text(next_btn);
+        }
+        return nullptr;
+    }
+
+    const char *getPrevText()
+    {
+        lv_obj_t *prev_btn = lv_list_get_prev_btn(_listCont, _cur_btn);
+        if (prev_btn) {
+            return lv_list_get_btn_text(prev_btn);
+        }
+        return nullptr;
+    }
+
     void setListCb(list_event_cb cb)
     {
         _cb = cb;
@@ -1013,6 +1035,7 @@ private:
     lv_obj_t *_listCont = nullptr;
     static List *_list ;
     list_event_cb _cb = nullptr;
+    lv_obj_t *_cur_btn = nullptr;
 };
 List *List::_list = nullptr;
 
@@ -1499,8 +1522,13 @@ static PlayState audio_state = Play_STOP;
 static PlayFomart audio_format = Play_NONE;
 
 
-lv_obj_t *audio_list = nullptr;
-lv_obj_t *audio_cont = nullptr;
+static lv_obj_t *audio_list = nullptr;
+static lv_obj_t *audio_cont = nullptr;
+static lv_obj_t *play_cont = nullptr;
+static lv_obj_t *audio_label = nullptr;
+static lv_obj_t *audio_cur_btn = nullptr;
+
+static const void *src_img_btn[4] =  {LV_SYMBOL_PREV, LV_SYMBOL_PAUSE, LV_SYMBOL_NEXT, LV_SYMBOL_PLAY};
 
 static bool audio_play_init()
 {
@@ -1582,7 +1610,7 @@ bool audio_play_start(String filename)
     audio_play_init();
     Serial.print("Play music name:");
     Serial.println(filename);
-
+#if 0
     if (audio_state == Play_PLAY) {
         switch (audio_format) {
         case Play_WAV:
@@ -1598,6 +1626,20 @@ bool audio_play_start(String filename)
             break;
         }
     }
+#else
+    if (audio_wav) {
+        if ( audio_wav->isRunning())
+            audio_wav->stop();
+    }
+    if (audio_mp3) {
+        if ( audio_mp3->isRunning())
+            audio_mp3->stop();
+    }
+    if (audio_flac ) {
+        if ( audio_flac->isRunning())
+            audio_flac->stop();
+    }
+#endif
 
     Serial.println("---------------------------");
     heap_caps_print_heap_info(MALLOC_CAP_SPIRAM);
@@ -1614,6 +1656,7 @@ bool audio_play_start(String filename)
             Serial.println("Failed to begin mp3 file");
             return false;
         }
+        lv_label_set_text(audio_label, filename.c_str());
         audio_state = Play_PLAY;
         audio_format = Play_MP3;
     } else if (filename.endsWith(".wav") || filename.endsWith(".WAV")) {
@@ -1626,6 +1669,7 @@ bool audio_play_start(String filename)
             Serial.println("Failed to begin wav file");
             return false;
         }
+        lv_label_set_text(audio_label, filename.c_str());
         audio_state = Play_PLAY;
         audio_format = Play_WAV;
 
@@ -1639,6 +1683,7 @@ bool audio_play_start(String filename)
             Serial.println("Failed to begin flac file");
             return false;
         }
+        lv_label_set_text(audio_label, filename.c_str());
         audio_state = Play_PLAY;
         audio_format = Play_FLAC;
 
@@ -1685,10 +1730,36 @@ void audio_play_loop()
         break;
     case Play_PAUSE:
         break;
-    case Play_NEXT:
-        break;
-    case Play_PREV:
-        break;
+    case Play_NEXT: {
+        lv_obj_t *next = lv_list_get_next_btn(audio_list, audio_cur_btn);
+        const char *txt = lv_list_get_btn_text(next);
+        if (!txt) {
+            return;
+        }
+        audio_cur_btn = next;
+        Serial.println(txt);
+        if (audio_play_start(String(txt))) {
+            audio_state = Play_PLAY;
+        } else {
+            audio_state = Play_STOP;
+        }
+    }
+    break;
+    case Play_PREV: {
+        lv_obj_t *prev = lv_list_get_prev_btn(audio_list, audio_cur_btn);
+        const char *txt = lv_list_get_btn_text(prev);
+        if (!txt) {
+            return;
+        }
+        audio_cur_btn = prev;
+        Serial.println(txt);
+        if (audio_play_start(String(txt))) {
+            audio_state = Play_PLAY;
+        } else {
+            audio_state = Play_STOP;
+        }
+    }
+    break;
     case Play_STOP:
         break;
     default:
@@ -1698,12 +1769,6 @@ void audio_play_loop()
 
 
 
-static lv_obj_t *play_cont = nullptr;
-static lv_obj_t *audio_label = nullptr;
-static lv_obj_t *audio_cur_btn = nullptr;
-
-static const void *src_img_btn[4] =  {LV_SYMBOL_PREV, LV_SYMBOL_PAUSE, LV_SYMBOL_NEXT, LV_SYMBOL_PLAY};
-
 static void audio_play_event_handler(lv_obj_t *obj, lv_event_t event)
 {
     if (event == LV_EVENT_CLICKED) {
@@ -1711,19 +1776,19 @@ static void audio_play_event_handler(lv_obj_t *obj, lv_event_t event)
         switch (flags) {
         case 1: //prev
             Serial.println("PREV");
-
+            audio_state = Play_PREV;
             break;
         case 2: // play  & pause
             Serial.println("PLAY");
-
+            //*! icon change
+            // audio_state = Play_PAUSE;
             break;
         case 3: // next
             Serial.println("NEXT");
-
+            audio_state = Play_NEXT;
             break;
         case 4: // qiut
             Serial.println("QIUT");
-
             lv_obj_set_hidden(play_cont, true);
 #if DISABLE_LIST_CLASS
             list->hidden(false);
@@ -1747,7 +1812,7 @@ static void audio_play_create_ui(const char *name)
 #endif
 
     if (play_cont != nullptr) {
-        lv_label_set_text(audio_label, name);
+        // lv_label_set_text(audio_label, name);
         lv_obj_set_hidden(play_cont, false);
         return;
     }

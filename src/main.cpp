@@ -114,6 +114,9 @@ void setup()
     //Initialize TWatch
     ttgo->begin();
 
+    //Set PEK Key pressed 4 second power off
+    ttgo->power->setShutdownTime(AXP_POWER_OFF_TIME_4S);
+
     // Turn on the IRQ used
     ttgo->power->adc1Enable(AXP202_BATT_VOL_ADC1 | AXP202_BATT_CUR_ADC1 | AXP202_VBUS_VOL_ADC1 | AXP202_VBUS_CUR_ADC1, AXP202_ON);
     ttgo->power->enableIRQ(AXP202_VBUS_REMOVED_IRQ | AXP202_VBUS_CONNECT_IRQ | AXP202_CHARGING_FINISHED_IRQ, AXP202_ON);
