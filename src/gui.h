@@ -1,7 +1,7 @@
 /*
 Copyright (c) 2019 lewis he
 This is just a demonstration. Most of the functions are not implemented.
-The main implementation is low-power standby. 
+The main implementation is low-power standby.
 The off-screen standby (not deep sleep) current is about 4mA.
 Select standard motherboard and standard backplane for testing.
 Created by Lewis he on October 10, 2019.
@@ -28,6 +28,12 @@ typedef enum {
     LV_STATUS_BAR_BLUETOOTH = 3,
 } lv_icon_status_bar_t;
 
+
+enum GameControl{
+    GAME_CONTRL_EXTERNAL_BUTTON = 1,
+    GAME_CONTR_TOUCH_SCREEN,
+};
+
 void setupGui();
 void updateStepCounter(uint32_t counter);
 void updateBatteryIcon(lv_icon_battery_t index);
@@ -42,5 +48,8 @@ void bluetooth_diconnect_cb();
 
 void audio_play_loop();
 void game_done();
+uint8_t game_get_method();
+
+
 
 #endif /*__GUI_H */

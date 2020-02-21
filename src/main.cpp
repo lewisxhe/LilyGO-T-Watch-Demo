@@ -43,14 +43,15 @@ enum {
 #define WATCH_FLAG_BMA_IRQ      _BV(3)
 #define WATCH_FLAG_AXP_IRQ      _BV(4)
 
-QueueHandle_t g_event_queue_handle = NULL;
-EventGroupHandle_t g_event_group = NULL;
-EventGroupHandle_t isr_group = NULL;
-SemaphoreHandle_t xSysSemaphore = NULL;
+QueueHandle_t g_event_queue_handle = nullptr;
+EventGroupHandle_t g_event_group = nullptr;
+EventGroupHandle_t isr_group = nullptr;
+SemaphoreHandle_t xSysSemaphore = nullptr;
 bool screen_off = false;
 bool lenergy = false;
 
-TTGOClass *ttgo;
+TTGOClass *ttgo = nullptr;
+Button2 *extButton = nullptr;
 
 void setupNetwork()
 {
@@ -95,7 +96,7 @@ void low_energy()
         updateStepCounter(ttgo->bma->getCounter());
         updateBatteryLevel();
         updateBatteryIcon(LV_ICON_CALCULATION);
-        lv_disp_trig_activity(NULL);
+        lv_disp_trig_activity(nullptr);
         ttgo->openBL();
         ttgo->bma->enableStepCountInterrupt();
     }
@@ -209,7 +210,7 @@ void setup()
     setupGui();
 
     //Clear lvgl counter
-    lv_disp_trig_activity(NULL);
+    lv_disp_trig_activity(nullptr);
 
     //In lvgl we call the button processing regularly
     lv_task_create([](lv_task_t *args) {
@@ -295,13 +296,29 @@ void loop()
         }
 
         case Q_EVENT_PLAY_GAME: {
-            flappy_bird_start([]()->bool{
-                ttgo->button->loop();
-                return ttgo->touch->touched();
-            });
+
+            if (game_get_method() == GAME_CONTRL_EXTERNAL_BUTTON) {
+
+                extButton  = new Button2(25);
+                flappy_bird_start([]()->bool{
+                    ttgo->button->loop();
+                    extButton->loop();
+                    return extButton->isPressed();
+                });
+
+                delete extButton;
+                extButton = nullptr;
+
+            } else if (game_get_method() == GAME_CONTR_TOUCH_SCREEN) {
+                flappy_bird_start([]()->bool{
+                    ttgo->button->loop();
+                    return ttgo->touch->touched();
+                });
+            }
+
             ttgo->button->setDoubleClickHandler(nullptr);
             game_done();
-            lv_disp_trig_activity(NULL);
+            lv_disp_trig_activity(nullptr);
             lv_refr_now(nullptr);
         }
         break;
@@ -310,7 +327,7 @@ void loop()
         }
     }
     if (screen_off) {
-        if (lv_disp_get_inactive_time(NULL) < DEFAULT_SCREEN_TIMEOUT ) {
+        if (lv_disp_get_inactive_time(nullptr) < DEFAULT_SCREEN_TIMEOUT ) {
             xSemaphoreTake(xSysSemaphore, portMAX_DELAY);
             lv_task_handler();
             xSemaphoreGive(xSysSemaphore);

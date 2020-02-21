@@ -2486,9 +2486,6 @@ static lv_obj_t *milieu_label = nullptr;
 static void temperature_task(lv_task_t *t)
 {
     char buf[128] = {0};
-    // float val = rand() % 20;
-    // snprintf(buf, sizeof(buf), "%.2f", val);
-
     snprintf(buf, sizeof(buf), "%.2f", mlx90614_read_object());
     lv_label_set_text(temp_label, buf);
     lv_obj_align(temp_label, temp_cont, LV_ALIGN_CENTER, 0, -30);
@@ -2800,26 +2797,44 @@ static void bluetooth_event_cb()
 #define Q_EVENT_PLAY_GAME   (4)
 #endif
 
+#define GAME_EXTERNAL_BUTTON    "External button"
+#define GAME_TOUCH_SCREEN       "Touch screen"
+
+static uint8_t game_method;
+static lv_obj_t *game_cont = nullptr;
+
+uint8_t game_get_method()
+{
+    return game_method;
+}
+
 static void game_btn_event_cb(lv_obj_t *obj, lv_event_t event)
 {
     if (event == LV_EVENT_CLICKED) {
+
         lv_obj_t *label =  (lv_obj_t *)lv_obj_get_user_data(obj);
         const char *txt = lv_label_get_text(label);
-        Serial.println(txt);
+        if (strcmp(GAME_EXTERNAL_BUTTON, txt) == 0) {
+            game_method = GAME_CONTRL_EXTERNAL_BUTTON;
+        } else if (strcmp(GAME_TOUCH_SCREEN, txt) == 0) {
+            game_method = GAME_CONTR_TOUCH_SCREEN;
+        }
 
+        lv_obj_set_hidden(bar.self(), true);
 
-        // uint8_t data = Q_EVENT_PLAY_GAME;
-        // xQueueSend(g_event_queue_handle, &data, portMAX_DELAY);
+        lv_obj_del(game_cont);
+        game_cont = nullptr;
+
+        uint8_t data = Q_EVENT_PLAY_GAME;
+        xQueueSend(g_event_queue_handle, &data, portMAX_DELAY);
     }
 }
 
 static void game_event_cb()
 {
-    // lv_obj_set_hidden(bar.self(), true);
-    lv_obj_set_hidden(menuBars.self(), true);
+    menuBars.hidden();
 
-
-    lv_obj_t *game_cont = lv_cont_create(lv_scr_act(), nullptr);
+    game_cont = lv_cont_create(lv_scr_act(), nullptr);
     lv_obj_set_size(game_cont, LV_HOR_RES, LV_VER_RES - 30);
     lv_obj_align(game_cont, bar.self(), LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
     lv_obj_set_style(game_cont, getGlobalStyle());
@@ -2841,7 +2856,7 @@ static void game_event_cb()
     lv_obj_set_event_cb(btn, game_btn_event_cb);
 
     label = lv_label_create(btn, nullptr);
-    lv_label_set_text(label, "External button");
+    lv_label_set_text(label, GAME_EXTERNAL_BUTTON);
     lv_obj_align(label, btn, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_user_data(btn, label);
 
@@ -2853,13 +2868,10 @@ static void game_event_cb()
     lv_obj_set_event_cb(btn1, game_btn_event_cb);
 
     label = lv_label_create(btn1, nullptr);
-    lv_label_set_text(label, "Touch screen");
+    lv_label_set_text(label, GAME_TOUCH_SCREEN);
     lv_obj_align(label, btn1, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_user_data(btn1, label);
 
-
-    // uint8_t data = Q_EVENT_PLAY_GAME;
-    // xQueueSend(g_event_queue_handle, &data, portMAX_DELAY);
 }
 
 void game_done()
