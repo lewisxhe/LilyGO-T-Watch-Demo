@@ -28,13 +28,7 @@ Created by Lewis he on October 10, 2019.
 #define G_EVENT_WIFI_BEGIN          _BV(6)
 #define G_EVENT_WIFI_OFF            _BV(7)
 
-enum {
-    Q_EVENT_WIFI_SCAN_DONE,
-    Q_EVENT_WIFI_CONNECT,
-    Q_EVENT_BMA_INT,
-    Q_EVENT_AXP_INT,
-    Q_EVENT_PLAY_GAME,
-} ;
+
 
 #define DEFAULT_SCREEN_TIMEOUT  30*1000
 
@@ -322,6 +316,23 @@ void loop()
             lv_refr_now(nullptr);
         }
         break;
+        case Q_EVENT_COLOR_PALETTE:
+            // while (1) {
+            //     lv_indev_data_t data;
+            //     lv_indev_t *indev = lv_indev_get_next(nullptr);
+            //     if (indev) {
+            //         lv_indev_read(indev, &data);
+            //         if (data.state == LV_INDEV_STATE_PR) {
+            //             Serial.printf("x:%d y:%d\n", data.point.x, data.point.y);
+            //             draw_color_plaette(data.point.x, data.point.y);
+            //         }
+            //     } else {
+            //         Serial.println("nothing");
+            //     }
+            //     lv_task_handler();
+            //     delay(5);
+            // }
+            break;
         default:
             break;
         }

@@ -1,0 +1,36 @@
+{
+    "name": "TTGO TWatch Library", 
+    "repository": {
+        "url": "https://github.com/Xinyuan-LilyGO/TTGO_TWatch_Library.git", 
+        "type": "git"
+    }, 
+    "platforms": [
+        "esp32"
+    ], 
+    "frameworks": [
+        "arduino"
+    ], 
+    "version": "1.0.0", 
+    "authors": [
+        {
+            "maintainer": true, 
+            "name": "Xinyuan Electronics", 
+            "url": "https://github.com/Xinyuan-LilyGO", 
+            "email": "lily@lilygo.cc"
+        }, 
+        {
+            "url": null, 
+            "maintainer": false, 
+            "email": "lewishe@outlook.com", 
+            "name": "lewishe"
+        }
+    ], 
+    "keywords": [
+        "twatch", 
+        "watch", 
+        "ttgo", 
+        "device conterl"
+    ], 
+    "id": 6875, 
+    "description": "Arduino Library for TTGO T-Watch development kit"
+}

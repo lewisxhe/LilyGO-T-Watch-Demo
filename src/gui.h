@@ -10,6 +10,15 @@ Created by Lewis he on October 10, 2019.
 #ifndef __GUI_H
 #define __GUI_H
 
+enum {
+    Q_EVENT_WIFI_SCAN_DONE,
+    Q_EVENT_WIFI_CONNECT,
+    Q_EVENT_BMA_INT,
+    Q_EVENT_AXP_INT,
+    Q_EVENT_PLAY_GAME,
+    Q_EVENT_COLOR_PALETTE,
+} ;
+
 typedef enum {
     LV_ICON_BAT_EMPTY,
     LV_ICON_BAT_1,
@@ -50,6 +59,7 @@ void audio_play_loop();
 void game_done();
 uint8_t game_get_method();
 
+void draw_color_plaette(int16_t x, int16_t y);
 
 
 #endif /*__GUI_H */
