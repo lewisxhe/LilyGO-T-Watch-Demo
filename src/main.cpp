@@ -41,6 +41,7 @@ QueueHandle_t g_event_queue_handle = nullptr;
 EventGroupHandle_t g_event_group = nullptr;
 EventGroupHandle_t isr_group = nullptr;
 SemaphoreHandle_t xSysSemaphore = nullptr;
+
 bool screen_off = false;
 bool lenergy = false;
 
@@ -293,7 +294,7 @@ void loop()
 
             if (game_get_method() == GAME_CONTRL_EXTERNAL_BUTTON) {
 
-                extButton  = new Button2(25);
+                extButton = new Button2(25);
                 flappy_bird_start([]()->bool{
                     ttgo->button->loop();
                     extButton->loop();
@@ -316,23 +317,6 @@ void loop()
             lv_refr_now(nullptr);
         }
         break;
-        case Q_EVENT_COLOR_PALETTE:
-            // while (1) {
-            //     lv_indev_data_t data;
-            //     lv_indev_t *indev = lv_indev_get_next(nullptr);
-            //     if (indev) {
-            //         lv_indev_read(indev, &data);
-            //         if (data.state == LV_INDEV_STATE_PR) {
-            //             Serial.printf("x:%d y:%d\n", data.point.x, data.point.y);
-            //             draw_color_plaette(data.point.x, data.point.y);
-            //         }
-            //     } else {
-            //         Serial.println("nothing");
-            //     }
-            //     lv_task_handler();
-            //     delay(5);
-            // }
-            break;
         default:
             break;
         }

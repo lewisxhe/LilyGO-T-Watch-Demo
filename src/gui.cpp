@@ -59,8 +59,8 @@ LV_FONT_DECLARE(digital_font);
 LV_IMG_DECLARE(thermometer);
 LV_IMG_DECLARE(qiut);
 LV_IMG_DECLARE(bird_png);
-LV_IMG_DECLARE(speedometer_png);
-LV_IMG_DECLARE(color_palette_png);
+// LV_IMG_DECLARE(speedometer_png);
+// LV_IMG_DECLARE(color_palette_png);
 
 extern EventGroupHandle_t g_event_group;
 extern QueueHandle_t g_event_queue_handle;
@@ -88,8 +88,11 @@ static void wifi_destory();
 static void nCov_event_cb();
 static void thermometer_event_cb();
 static void game_event_cb();
-static void speedometer_event_cb();
-static void color_palette_event_cb();
+// static void speedometer_event_cb();
+// static void color_palette_event_cb();
+
+static void sd_list_file(fs::FS &fs, const char *dirname = "/", uint8_t levels = 0);
+static void sd_list_event_cb(lv_obj_t *obj,  lv_event_t event);
 
 
 class StatusBar
@@ -341,7 +344,9 @@ MenuBar::lv_menu_config_t _cfg[] = {
     // {.name = "Modules",  .img = (void *) &modules, /*.event_cb = modules_event_cb */},
     // {.name = "Camera",  .img = (void *) &CAMERA_PNG, /*.event_cb = camera_event_cb*/ },
     //{.name = "Info",  .img = (void *) &cpu_png, /*.event_cb = info_event_cb*/ },
+#if defined(COLOR_PALETTE_EN)
     {.name = "ColorPalette",  .img = (void *) &color_palette_png, .event_cb = color_palette_event_cb},
+#endif
 };
 
 
@@ -1512,6 +1517,8 @@ enum PlayFomart {
     Play_NONE,
 };
 
+#define AUDIO_PLAY_ENABLE
+
 #ifdef  AUDIO_PLAY_ENABLE
 #include "AudioFileSourceSD.h"
 #include "AudioFileSourceID3.h"
@@ -1618,32 +1625,7 @@ static void audio_play_deinit()
 
 bool audio_play_start(String filename)
 {
-    Serial.println("---------------------------");
-    heap_caps_print_heap_info(MALLOC_CAP_SPIRAM);
-    Serial.println("---------------------------");
-    heap_caps_print_heap_info(MALLOC_CAP_INTERNAL);
-    Serial.println("---------------------------");
-
     audio_play_init();
-    Serial.print("Play music name:");
-    Serial.println(filename);
-#if 0
-    if (audio_state == Play_PLAY) {
-        switch (audio_format) {
-        case Play_WAV:
-            audio_wav->stop();
-            break;
-        case Play_MP3:
-            audio_mp3->stop();
-            break;
-        case Play_FLAC:
-            audio_flac->stop();
-            break;
-        default:
-            break;
-        }
-    }
-#else
     if (audio_wav) {
         if ( audio_wav->isRunning())
             audio_wav->stop();
@@ -1656,13 +1638,7 @@ bool audio_play_start(String filename)
         if ( audio_flac->isRunning())
             audio_flac->stop();
     }
-#endif
 
-    Serial.println("---------------------------");
-    heap_caps_print_heap_info(MALLOC_CAP_SPIRAM);
-    Serial.println("---------------------------");
-    heap_caps_print_heap_info(MALLOC_CAP_INTERNAL);
-    Serial.println("---------------------------");
 
     if (filename.endsWith(".mp3")) {
         if (!audio_file->open(filename.c_str())) {
@@ -1807,11 +1783,7 @@ static void audio_play_event_handler(lv_obj_t *obj, lv_event_t event)
         case 4: // qiut
             Serial.println("QIUT");
             lv_obj_set_hidden(play_cont, true);
-#if DISABLE_LIST_CLASS
-            list->hidden(false);
-#else
             lv_obj_set_hidden(audio_cont, false);
-#endif
             break;
         default:
             break;
@@ -1822,14 +1794,8 @@ static void audio_play_event_handler(lv_obj_t *obj, lv_event_t event)
 
 static void audio_play_create_ui(const char *name)
 {
-#if DISABLE_LIST_CLASS
-    list->hidden();
-#else
     lv_obj_set_hidden(audio_cont, true);
-#endif
-
     if (play_cont != nullptr) {
-        // lv_label_set_text(audio_label, name);
         lv_obj_set_hidden(play_cont, false);
         return;
     }
@@ -1922,10 +1888,7 @@ static void sd_mbox_event_cb(lv_obj_t *obj, lv_event_t event)
 }
 
 
-static void sd_list_file(fs::FS &fs, const char *dirname = "/", uint8_t levels = 0);
-#if !defined(DISABLE_LIST_CLASS)
-static void sd_list_event_cb(lv_obj_t *obj,  lv_event_t event);
-#endif
+
 
 static void sd_list_file(fs::FS &fs, const char *dirname, uint8_t levels)
 {
@@ -1944,8 +1907,6 @@ static void sd_list_file(fs::FS &fs, const char *dirname, uint8_t levels)
     File file = root.openNextFile();
     while (file) {
         if (file.isDirectory()) {
-            // Serial.print("  DIR : ");
-            // Serial.println(file.name());
             if (levels) {
                 sd_list_file(fs, file.name(), levels - 1);
             }
@@ -1958,39 +1919,16 @@ static void sd_list_file(fs::FS &fs, const char *dirname, uint8_t levels)
                         filename.endsWith(".wav") ||
                         filename.endsWith(".flac")) {
                     Serial.println(filename);
-#if DISABLE_LIST_CLASS
-                    list->add(filename.c_str(), (void *)LV_SYMBOL_FILE);
-#else
+
                     lv_obj_t *btns = lv_list_add_btn(audio_list, LV_SYMBOL_FILE, filename.c_str());
                     lv_obj_set_event_cb(btns, sd_list_event_cb);
-
-#endif
                 }
             }
-            // Serial.print("  FILE: ");
-            // Serial.print(file.name());
-            // Serial.print("  SIZE: ");
-            // Serial.println(file.size());
         }
         file = root.openNextFile();
     }
 }
 
-#if DISABLE_LIST_CLASS
-static void sd_list_event_cb(const char *text)
-{
-    Serial.println(text);
-    // disableCore0WDT();
-    // disableCore1WDT();
-    audio_play_create_ui(text);
-    // return;
-    if (audio_play_start(String(text))) {
-        // xTaskCreate(audio_play_task, "audio", 8192, nullptr, 1, NULL);
-    } else {
-        Serial.println("Failed to paly music");
-    }
-}
-#else
 static void sd_list_event_cb(lv_obj_t *obj,  lv_event_t event)
 {
     if (event == LV_EVENT_SHORT_CLICKED) {
@@ -2006,7 +1944,6 @@ static void sd_list_event_cb(lv_obj_t *obj,  lv_event_t event)
         }
     }
 }
-#endif
 
 static void sd_event_cb()
 {
@@ -2015,13 +1952,6 @@ static void sd_event_cb()
         lv_mbox_add_btns(mbox1, btns);
         return;
     }
-#if DISABLE_LIST_CLASS
-    list = new List;
-    list->create();
-    list->align(bar.self(), LV_ALIGN_OUT_BOTTOM_MID);
-    list->setListCb(sd_list_event_cb);
-#else
-
     static lv_style_t plStyle;
     lv_style_copy(&plStyle, &lv_style_plain);    /*Copy a built-in style to initialize the new style*/
     plStyle.body.main_color = LV_COLOR_GRAY;
@@ -2039,7 +1969,6 @@ static void sd_event_cb()
     listStyle.body.opa = LV_OPA_0;
     listStyle.text.color = LV_COLOR_WHITE;
     listStyle.image.color = LV_COLOR_WHITE;
-    // listStyle.text.font = &chinese_font;
 
     audio_cont = lv_cont_create(lv_scr_act(), nullptr);
     lv_obj_set_size(audio_cont, LV_HOR_RES, LV_VER_RES - 30);
@@ -2070,8 +1999,6 @@ static void sd_event_cb()
             }
         }
     });
-
-#endif
     sd_list_file(SD);
 
 }
@@ -2214,8 +2141,12 @@ static bool nCov_capture_data(const char *prov)
         return false;
     }
 
+    // heap_caps_print_heap_info(MALLOC_CAP_INTERNAL);
+
     String payload = http.getString();
     http.end();
+
+    Serial.println("get info:");
     Serial.println(payload);
 
     DeserializationError error = deserializeJson(doc, payload);
@@ -2782,9 +2713,6 @@ static void bluetooth_event_cb()
  *          ! GAME EVENT
  *          ! 20200220 lewis add
  */
-#ifndef Q_EVENT_PLAY_GAME
-#define Q_EVENT_PLAY_GAME   (4)
-#endif
 
 #define GAME_EXTERNAL_BUTTON    "External button"
 #define GAME_TOUCH_SCREEN       "Touch screen"
@@ -2800,7 +2728,6 @@ uint8_t game_get_method()
 static void game_btn_event_cb(lv_obj_t *obj, lv_event_t event)
 {
     if (event == LV_EVENT_CLICKED) {
-
         lv_obj_t *label =  (lv_obj_t *)lv_obj_get_user_data(obj);
         const char *txt = lv_label_get_text(label);
         if (strcmp(GAME_EXTERNAL_BUTTON, txt) == 0) {
@@ -2808,12 +2735,9 @@ static void game_btn_event_cb(lv_obj_t *obj, lv_event_t event)
         } else if (strcmp(GAME_TOUCH_SCREEN, txt) == 0) {
             game_method = GAME_CONTR_TOUCH_SCREEN;
         }
-
         lv_obj_set_hidden(bar.self(), true);
-
         lv_obj_del(game_cont);
         game_cont = nullptr;
-
         uint8_t data = Q_EVENT_PLAY_GAME;
         xQueueSend(g_event_queue_handle, &data, portMAX_DELAY);
     }
@@ -2871,61 +2795,41 @@ void game_done()
 
 
 
-/*****************************************************************
- *
- *          ! SPEEDOMETER EVENT
- *          ! 20200221 lewis add
- */         //TODO
-static lv_obj_t   *speed_cont = nullptr;
-
-static void speedometer_event_cb()
-{
-    speed_cont = lv_cont_create(lv_scr_act(), nullptr);
-    lv_obj_set_size(speed_cont, LV_HOR_RES, LV_VER_RES - 30);
-    lv_obj_align(speed_cont, bar.self(), LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
-    lv_obj_set_style(speed_cont, getGlobalStyle());
-
-    lv_obj_t *label = lv_label_create(speed_cont, nullptr);
-    lv_label_set_text(label, "Choose control method");
-    lv_obj_align(label, game_cont, LV_ALIGN_IN_TOP_LEFT, 10, 30);
-}
 
 /*****************************************************************
  *
  *          ! COLOR PALETTE EVENT
  *          ! 20200221 lewis add
  */
-
+#if defined(COLOR_PALETTE_EN)
 #define CANVAS_WIDTH  240
 #define CANVAS_HEIGHT  240
 lv_obj_t *canvas = nullptr;
 
-void draw_color_plaette(int16_t x, int16_t y)
-{
-    static lv_style_t style;
-    lv_style_copy(&style, &lv_style_plain);
-    style.body.main_color = LV_COLOR_BLACK;
-    style.body.grad_color = LV_COLOR_BLACK;
-    style.body.radius = 4;
-    style.body.border.width = 2;
-    style.body.border.color = LV_COLOR_BLACK;
-    style.body.shadow.color = LV_COLOR_BLACK;
-    // style.body.shadow.width = 4;
-    style.line.width = 2;
-    style.line.color = LV_COLOR_BLACK;
-    style.text.color = LV_COLOR_BLACK;
-    style.body.opa = LV_OPA_50;
 
-    lv_canvas_draw_arc(canvas, x, y, 10, 10, 10, &style);
-    // lv_canvas_draw_rect(canvas, x, y, 10, 10, &style);
-    // lv_canvas_set_px(canvas, x, y, LV_COLOR_BLUE);
+void canvas_cb(lv_obj_t *obj, lv_event_t event)
+{
+    lv_point_t point;
+    if (event == LV_EVENT_PRESSING) {
+        lv_indev_t *indev =  lv_indev_get_act();
+        if (indev) {
+            lv_indev_get_point(indev, &point);
+            Serial.printf("x:%d y:%d\n", point.x, point.y);
+            static lv_style_t style;
+            lv_style_copy(&style, &lv_style_plain_color);
+            style.line.color = LV_COLOR_YELLOW;
+            style.line.rounded = 0;
+            style.line.width = 10;
+            lv_canvas_draw_arc(obj, point.x, point.y, 10, 0, 360, &style);
+        } else {
+            Serial.println("nothing");
+        }
+    }
 }
 
 static void color_palette_event_cb()
 {
     lv_obj_set_hidden(bar.self(), true);
-    // uint8_t data = Q_EVENT_PLAY_GAME;
-    // xQueueSend(g_event_queue_handle, &data, portMAX_DELAY);
 
     static lv_style_t style;
     lv_style_copy(&style, &lv_style_plain);
@@ -2940,7 +2844,6 @@ static void color_palette_event_cb()
     style.line.color = LV_COLOR_BLACK;
     style.text.color = LV_COLOR_BLUE;
 
-    // static lv_color_t cbuf[LV_CANVAS_BUF_SIZE_TRUE_COLOR(CANVAS_WIDTH, CANVAS_HEIGHT)];
     lv_color_t *cbuf = (lv_color_t *)heap_caps_calloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(CANVAS_WIDTH, CANVAS_HEIGHT), sizeof(lv_color_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!cbuf) {
         Serial.println("cbuf failed\n");
@@ -2952,73 +2855,14 @@ static void color_palette_event_cb()
     canvas = lv_canvas_create(lv_scr_act(), NULL);
     lv_canvas_set_buffer(canvas, cbuf, CANVAS_WIDTH, CANVAS_HEIGHT, LV_IMG_CF_TRUE_COLOR);
     lv_obj_align(canvas, NULL, LV_ALIGN_CENTER, 0, 0);
-    lv_canvas_fill_bg(canvas, LV_COLOR_BLACK);
+    lv_canvas_fill_bg(canvas, LV_COLOR_SILVER);
 
     lv_canvas_draw_rect(canvas, 70, 60, 100, 70, &style);
 
     lv_canvas_draw_text(canvas, 40, 20, 100, &style, "Some text on text canvas", LV_LABEL_ALIGN_LEFT);
 
-
-    static lv_style_t arc_style;
-    lv_style_copy(&arc_style, &lv_style_plain_color);
-    arc_style.image.color = LV_COLOR_BLUE;
-    arc_style.image.opa = 0;
-    arc_style.body.main_color = LV_COLOR_GREEN;
-    arc_style.body.grad_color = LV_COLOR_RED;
-
-    arc_style.line.color = LV_COLOR_YELLOW;
-    arc_style.line.rounded = 0;
-    arc_style.line.width = 10;
-
-    lv_canvas_draw_arc(canvas, 50, 50, 10, 0, 360, &arc_style);
-
-    /* Test the rotation. It requires an other buffer where the orignal image is stored.
-     * So copy the current image to buffer and rotate it to the canvas */
-    // lv_color_t cbuf_tmp[CANVAS_WIDTH * CANVAS_HEIGHT];
-    // lv_color_t *cbuf_tmp = (lv_color_t *)heap_caps_calloc(CANVAS_WIDTH * CANVAS_HEIGHT, sizeof(lv_color_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    // memcpy(cbuf_tmp, cbuf, sizeof(lv_color_t) * CANVAS_WIDTH * CANVAS_HEIGHT);
-    // lv_img_dsc_t img;
-    // img.data = (uint8_t *)cbuf_tmp;
-    // img.header.cf = LV_IMG_CF_TRUE_COLOR;
-    // img.header.w = CANVAS_WIDTH;
-    // img.header.h = CANVAS_HEIGHT;
-    // lv_canvas_fill_bg(canvas, LV_COLOR_SILVER);
-    // lv_canvas_rotate(canvas, &img, 30, 0, 0, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
-
     lv_obj_set_click(canvas, true);
-    lv_obj_set_event_cb(canvas, [](lv_obj_t *obj, lv_event_t event) {
-        lv_point_t point;
-        if (event == LV_EVENT_PRESSING) {
-            lv_indev_t *indev =  lv_indev_get_act();
-            if (indev) {
-                lv_indev_get_point(indev, &point);
-                Serial.printf("x:%d y:%d\n", point.x, point.y);
-                static lv_style_t style;
-                lv_style_copy(&style, &lv_style_plain_color);
-                // style.body.main_color = LV_COLOR_BLACK;
-                // style.body.grad_color = LV_COLOR_BLACK;
-                // style.body.radius = 4;
-                // style.body.border.width = 2;
-                // style.body.border.color = LV_COLOR_BLACK;
-                // style.body.shadow.color = LV_COLOR_BLACK;
-                // // style.body.shadow.width = 4;
-                // style.line.width = 2;
-                // style.line.color = LV_COLOR_BLACK;
-                // style.text.color = LV_COLOR_BLACK;
-                // style.body.opa = LV_OPA_50;
-                // style.image.color = LV_COLOR_BLACK;
-
-                lv_canvas_draw_arc(canvas, point.x, point.y, 10, 0, 360, &style);
-                // lv_canvas_set_px(canvas, point.x, point.y, LV_COLOR_BLUE);
-            } else {
-                Serial.println("nothing");
-            }
-        }
-    });
-
-    uint8_t data = Q_EVENT_COLOR_PALETTE;
-    xQueueSend(g_event_queue_handle, &data, portMAX_DELAY);
-
+    lv_obj_set_event_cb(canvas, canvas_cb);
 }
 
 void color_palette_done()
@@ -3026,3 +2870,4 @@ void color_palette_done()
     lv_obj_set_hidden(bar.self(), false);
     lv_obj_set_hidden(menuBars.self(), false);
 }
+#endif

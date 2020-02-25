@@ -16,7 +16,6 @@ enum {
     Q_EVENT_BMA_INT,
     Q_EVENT_AXP_INT,
     Q_EVENT_PLAY_GAME,
-    Q_EVENT_COLOR_PALETTE,
 } ;
 
 typedef enum {
@@ -59,7 +58,6 @@ void audio_play_loop();
 void game_done();
 uint8_t game_get_method();
 
-void draw_color_plaette(int16_t x, int16_t y);
 
 
 #endif /*__GUI_H */

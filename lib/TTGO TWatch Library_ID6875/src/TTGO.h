@@ -97,22 +97,11 @@ public:
         lv_indev_drv_t indev_drv;
         lv_disp_drv_init(&disp_drv);
         static lv_disp_buf_t disp_buf;
-#if 0
-        static lv_color_t buf1[LV_HOR_RES_MAX * 10];                        /*A buffer for 10 rows*/
-        static lv_color_t buf2[LV_HOR_RES_MAX * 10];                        /*An other buffer for 10 rows*/
-        lv_disp_buf_init(&disp_buf, buf1, buf2, LV_HOR_RES_MAX * 10);   /*Initialize the display buffer*/
-#else
         static lv_color_t *buf1 = (lv_color_t *)heap_caps_calloc(LV_HOR_RES_MAX * 10, sizeof(lv_color_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT );
-        static lv_color_t *buf2 = (lv_color_t *)heap_caps_calloc(LV_HOR_RES_MAX * 10, sizeof(lv_color_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT );
         if (!buf1) {
             Serial.println("alloc failed\n"); while (1);
         }
-        if (!buf2) {
-            Serial.println("alloc failed\n"); while (1);
-        }
-        lv_disp_buf_init(&disp_buf, buf1, buf2, LV_HOR_RES_MAX * 10);
-#endif
-
+        lv_disp_buf_init(&disp_buf, buf1, NULL, LV_HOR_RES_MAX * 10);
         disp_drv.hor_res = 240;
         disp_drv.ver_res = 240;
         disp_drv.flush_cb = disp_flush;
