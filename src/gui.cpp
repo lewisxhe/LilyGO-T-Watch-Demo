@@ -94,6 +94,7 @@ static void game_event_cb();
 static void sd_list_file(fs::FS &fs, const char *dirname = "/", uint8_t levels = 0);
 static void sd_list_event_cb(lv_obj_t *obj,  lv_event_t event);
 
+extern void set_screen_timeout(bool en);
 
 class StatusBar
 {
@@ -333,7 +334,9 @@ private:
 
 MenuBar::lv_menu_config_t _cfg[] = {
     {.name = "WiFi",  .img = (void *) &wifi, .event_cb = wifi_event_cb},
+#if defined(NCOV2019_ENABLE)
     {.name = "nCov", .img = (void *) &nCov, .event_cb = nCov_event_cb},
+#endif
     {.name = "Thermometer", .img = (void *) &thermometer, .event_cb = thermometer_event_cb},
     {.name = "Bluetooth",  .img = (void *) &bluetooth, .event_cb = bluetooth_event_cb},
     {.name = "SD Card",  .img = (void *) &sd,  .event_cb = sd_event_cb},
@@ -1685,8 +1688,10 @@ bool audio_play_start(String filename)
         audio_format = Play_NONE;
         return false;
     }
+    set_screen_timeout(false);
     return true;
 }
+
 
 static void aduio_play_handle()
 {
@@ -1695,18 +1700,21 @@ static void aduio_play_handle()
         if (!audio_mp3->loop()) {
             audio_mp3->stop();
             audio_state = Play_STOP;
+            set_screen_timeout(true);
         }
         break;
     case Play_WAV:
         if (!audio_wav->loop()) {
             audio_wav->stop();
             audio_state = Play_STOP;
+            set_screen_timeout(true);
         }
         break;
     case Play_FLAC:
         if (!audio_flac->loop()) {
             audio_flac->stop();
             audio_state = Play_STOP;
+            set_screen_timeout(true);
         }
         break;
 
@@ -2024,6 +2032,7 @@ static void camera_event_cb()
 
 }
 
+#ifdef NCOV2019_ENABLE
 /*****************************************************************
 *
 *          ! nCov EVENT
@@ -2398,7 +2407,7 @@ static void nCov_event_cb()
         list->setStyle(LV_LIST_STYLE_BTN_TGL_PR, &listStyle);
     }
 }
-
+#endif //NCOV2019_ENABLE
 
 /*****************************************************************
 *

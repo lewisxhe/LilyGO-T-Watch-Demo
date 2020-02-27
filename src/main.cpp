@@ -42,7 +42,7 @@ EventGroupHandle_t g_event_group = nullptr;
 EventGroupHandle_t isr_group = nullptr;
 SemaphoreHandle_t xSysSemaphore = nullptr;
 
-bool screen_off = false;
+bool screen_off = true;
 bool lenergy = false;
 
 TTGOClass *ttgo = nullptr;
@@ -335,4 +335,9 @@ void loop()
         xSemaphoreGive(xSysSemaphore);
     }
     audio_play_loop();
+}
+
+void set_screen_timeout(bool en)
+{
+    screen_off = en;
 }

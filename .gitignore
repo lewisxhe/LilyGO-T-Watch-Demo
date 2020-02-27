@@ -8,3 +8,5 @@ test
 vscode
 tools
 *.ttf
+.gitignore
+.travis.yml
