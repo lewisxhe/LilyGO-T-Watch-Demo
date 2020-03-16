@@ -59,8 +59,8 @@ LV_FONT_DECLARE(digital_font);
 LV_IMG_DECLARE(thermometer);
 LV_IMG_DECLARE(qiut);
 LV_IMG_DECLARE(bird_png);
-// LV_IMG_DECLARE(speedometer_png);
-// LV_IMG_DECLARE(color_palette_png);
+LV_IMG_DECLARE(speedometer_png);
+LV_IMG_DECLARE(color_palette_png);
 
 extern EventGroupHandle_t g_event_group;
 extern QueueHandle_t g_event_queue_handle;
@@ -88,8 +88,8 @@ static void wifi_destory();
 static void nCov_event_cb();
 static void thermometer_event_cb();
 static void game_event_cb();
-// static void speedometer_event_cb();
-// static void color_palette_event_cb();
+static void speedometer_event_cb();
+static void color_palette_event_cb();
 
 static void sd_list_file(fs::FS &fs, const char *dirname = "/", uint8_t levels = 0);
 static void sd_list_event_cb(lv_obj_t *obj,  lv_event_t event);
@@ -2824,17 +2824,28 @@ void canvas_cb(lv_obj_t *obj, lv_event_t event)
         if (indev) {
             lv_indev_get_point(indev, &point);
             Serial.printf("x:%d y:%d\n", point.x, point.y);
-            static lv_style_t style;
-            lv_style_copy(&style, &lv_style_plain_color);
-            style.line.color = LV_COLOR_YELLOW;
-            style.line.rounded = 0;
-            style.line.width = 10;
-            lv_canvas_draw_arc(obj, point.x, point.y, 10, 0, 360, &style);
-        } else {
-            Serial.println("nothing");
+
+            // static lv_style_t style;
+            // lv_style_copy(&style, &lv_style_plain_color);
+            // style.line.color = LV_COLOR_RED;
+            // style.line.rounded = 0;
+            // style.line.width = 10;
+            // lv_canvas_draw_arc(obj, point.x, point.y, 10, 0, 360, &style);
+
+            TTGOClass *watch = TTGOClass::getWatch();
+            TFT_eSPI *tft = watch->eTFT;
+            int32_t x = point.x;
+            int32_t y = point.y;
+            if (x > 120 && y < 60) {
+
+            } else
+                tft->fillCircle(x, y, 10, TFT_RED);
+
         }
     }
 }
+static lv_obj_t *con;
+void color_palette_done();
 
 static void color_palette_event_cb()
 {
@@ -2853,6 +2864,7 @@ static void color_palette_event_cb()
     style.line.color = LV_COLOR_BLACK;
     style.text.color = LV_COLOR_BLUE;
 
+#if 0       // test on esp is invaild
     lv_color_t *cbuf = (lv_color_t *)heap_caps_calloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(CANVAS_WIDTH, CANVAS_HEIGHT), sizeof(lv_color_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!cbuf) {
         Serial.println("cbuf failed\n");
@@ -2865,13 +2877,71 @@ static void color_palette_event_cb()
     lv_canvas_set_buffer(canvas, cbuf, CANVAS_WIDTH, CANVAS_HEIGHT, LV_IMG_CF_TRUE_COLOR);
     lv_obj_align(canvas, NULL, LV_ALIGN_CENTER, 0, 0);
     lv_canvas_fill_bg(canvas, LV_COLOR_SILVER);
-
-    lv_canvas_draw_rect(canvas, 70, 60, 100, 70, &style);
-
-    lv_canvas_draw_text(canvas, 40, 20, 100, &style, "Some text on text canvas", LV_LABEL_ALIGN_LEFT);
-
     lv_obj_set_click(canvas, true);
     lv_obj_set_event_cb(canvas, canvas_cb);
+
+
+    lv_obj_t *btn = lv_btn_create(canvas, NULL);
+    lv_obj_t *txt = lv_label_create(btn, NULL);
+    lv_label_set_text(txt, "exit");
+    // lv_obj_set_size(btn, 240, 240);
+    lv_obj_align(txt, btn, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(btn, NULL, LV_ALIGN_IN_TOP_LEFT, 5, 5);
+
+    lv_obj_set_event_cb(btn, [](lv_obj_t *obj, lv_event_t event) {
+        if (event == LV_EVENT_CLICKED) {
+            Serial.println("btn click");
+            // lv_canvas_fill_bg(canvas, LV_COLOR_SILVER);
+
+            TTGOClass *watch = TTGOClass::getWatch();
+            TFT_eSPI *tft = watch->eTFT;
+            tft->fillScreen(TFT_WHITE);
+        }
+    });
+    // lv_canvas_draw_rect(canvas, 70, 60, 100, 70, &style);
+    // lv_canvas_draw_text(canvas, 40, 20, 100, &style, "Some text on text canvas", LV_LABEL_ALIGN_LEFT);
+#else
+    style.body.main_color = LV_COLOR_WHITE;
+    style.body.grad_color = LV_COLOR_WHITE;
+    style.body.opa = 255;
+    con =  lv_cont_create(lv_scr_act(), NULL);
+    lv_obj_set_size(con, 240, 240);
+    lv_obj_set_style(con, &style);
+    lv_obj_align(con, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_click(con, true);
+    lv_obj_set_event_cb(con, canvas_cb);
+
+    lv_obj_t *btn = lv_btn_create(con, NULL);
+    lv_obj_set_size(btn, 60, 60);
+    lv_obj_t *txt = lv_label_create(btn, NULL);
+    lv_label_set_text(txt, "Qiut");
+    lv_obj_align(txt, btn, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(btn, con, LV_ALIGN_IN_TOP_RIGHT, 0, 0);
+
+    lv_obj_set_event_cb(btn, [](lv_obj_t *obj, lv_event_t event) {
+        if (event == LV_EVENT_CLICKED) {
+            Serial.println("Qiut btn click");
+            lv_obj_del(con);
+            con = NULL;
+            color_palette_done();
+        }
+    });
+
+    lv_obj_t *btn1 = lv_btn_create(con, NULL);
+    lv_obj_set_size(btn1, 60, 60);
+    txt = lv_label_create(btn1, NULL);
+    lv_label_set_text(txt, "Clear");
+    lv_obj_align(txt, btn1, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(btn1, btn, LV_ALIGN_OUT_LEFT_MID, 0, 0);
+
+    lv_obj_set_event_cb(btn1, [](lv_obj_t *obj, lv_event_t event) {
+        if (event == LV_EVENT_CLICKED) {
+            lv_obj_invalidate(con);
+            lv_refr_now(NULL);
+        }
+    });
+
+#endif
 }
 
 void color_palette_done()
